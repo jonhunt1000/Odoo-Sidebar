@@ -206,13 +206,20 @@
       }
       #extension-side-bar{position:fixed;top:0;left:0;height:100vh;width:var(--ts-sidebar-w);
         background:linear-gradient(180deg,var(--ts-purple-2),var(--ts-purple)); color:#fff;display:flex;flex-direction:column;overflow:hidden;
-        border-right:1px solid rgba(0,0,0,.25);box-shadow:4px 0 22px rgba(43,18,43,.15);transition:width .18s ease, opacity .14s ease;z-index:900;
+        border-right:1px solid rgba(0,0,0,.25);box-shadow:4px 0 22px rgba(43,18,43,.15);transition:width .18s ease;z-index:900;
         font-family: var(--o-font-family, Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans"); font-size:13px; line-height:1.2;}
       #extension-side-bar.dark-mode{background:linear-gradient(180deg,var(--ts-dark-1),var(--ts-dark-2))!important;color:#e9e9ea!important;}
 
-      /* NEW: true-collapsed hides the bar entirely */
-      #extension-side-bar.collapsed{width:0!important; opacity:0; pointer-events:none;}
-      /* the old collapsed visuals are never shown now */
+      #extension-side-bar.collapsed{width:var(--ts-collapsed-w)!important;}
+      #extension-side-bar.collapsed #sidebar-search-wrap{visibility:hidden;pointer-events:none;}
+      #extension-side-bar.collapsed .cat{margin:6px 0;padding:0;}
+      #extension-side-bar.collapsed .cat-hd{justify-content:center;padding:0;}
+      #extension-side-bar.collapsed .cat-name,
+      #extension-side-bar.collapsed .cat-caret,
+      #extension-side-bar.collapsed .cat-items{display:none!important;}
+      #extension-side-bar.collapsed .pill:not(#sidebar-collapse-toggle){display:none;}
+      #extension-side-bar.collapsed #sidebar-version{display:none;}
+      #extension-side-bar.collapsed #sidebar-dark-moon{display:none;}
 
       #sidebar-search-wrap{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;
         background:linear-gradient(180deg,var(--ts-purple-2),var(--ts-purple-2));padding:6px 8px 4px; min-height:38px;}
@@ -253,7 +260,7 @@
         transition:opacity .14s ease,transform .14s ease;font-family: var(--o-font-family, Inter, system-ui, -apple-system, "Segoe UI", Roboto);font-size:14px;}
       #extension-side-bar.dark-mode ~ #cat-pop{background:linear-gradient(180deg,var(--ts-dark-1),var(--ts-dark-2));}
       #cat-pop.show{display:flex;opacity:1;transform:scale(1);}
-      #cat-pop .pop-title{display:none;}
+      #cat-pop .pop-title{padding:8px 12px 4px 12px;font-size:14px;font-weight:600;letter-spacing:.01em;opacity:.95;}
       #cat-pop .pop-list a{display:block;height:28px;line-height:28px;padding:0 12px;margin:2px 8px;border-radius:8px;color:#fff;text-decoration:none;font-size:14px;}
       #cat-pop .pop-list a:hover{background:rgba(255,255,255,.12);}
 
@@ -309,20 +316,18 @@
       #ts-settings .chip{height:24px;display:inline-flex;align-items:center;border-radius:999px;padding:0 8px;background:rgba(255,255,255,.12);font-size:12px;}
       #ts-settings .x{position:absolute;right:8px;top:8px;height:28px;width:28px;border-radius:8px;border:none;background:rgba(255,255,255,.16);color:#fff;cursor:pointer}
       #ts-settings .x:hover{background:rgba(255,255,255,.26)}
-      #ts-settings .icon-picker{display:flex;align-items:center;gap:6px;}
-      #ts-settings .icon-preview{height:28px;width:28px;min-width:28px;border-radius:8px;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;font-family:"Material Icons Outlined";font-size:18px;opacity:.95;}
-      #ts-settings .icon-picker input[type="text"]{width:120px;}
-      #ts-settings .icon-picker button{height:28px;width:28px;border:none;border-radius:8px;background:rgba(255,255,255,.16);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:"Material Icons Outlined";font-size:18px;}
-      #ts-settings .icon-picker button:hover{background:rgba(255,255,255,.26);}
+      #ts-settings .icon-picker{display:flex;align-items:center;}
+      #ts-settings .icon-picker button{height:30px;width:30px;border:none;border-radius:8px;background:rgba(255,255,255,.16);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:"Material Icons Outlined";font-size:18px;transition:background .14s ease,transform .14s ease;}
+      #ts-settings .icon-picker button:hover{background:rgba(255,255,255,.26);transform:translateY(-1px);}
       #ts-icon-pop{position:fixed;display:flex;flex-direction:column;min-width:240px;max-width:320px;max-height:320px;overflow:hidden;border-radius:12px;background:linear-gradient(180deg,var(--ts-purple-2),var(--ts-purple));box-shadow:0 18px 50px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.14);opacity:0;transform:translateY(6px) scale(.98);pointer-events:none;transition:opacity .14s ease,transform .14s ease;z-index:4000;}
       body.o_dark_theme #ts-icon-pop{background:linear-gradient(180deg,var(--ts-dark-1),var(--ts-dark-2));}
       #ts-icon-pop.active{opacity:1;transform:translateY(0) scale(1);pointer-events:auto;}
       #ts-icon-pop .icon-pop-search{display:flex;align-items:center;gap:6px;padding:10px 10px 6px;}
       #ts-icon-pop .icon-pop-search input{flex:1;height:28px;border:none;border-radius:8px;padding:0 8px;background:rgba(255,255,255,.18);color:#fff;outline:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);font-size:13px;}
       #ts-icon-pop .icon-pop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;padding:4px 10px 12px;overflow:auto;}
-      #ts-icon-pop .icon-pop-option{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:8px;border:none;background:rgba(255,255,255,.12);color:#fff;font-size:13px;cursor:pointer;font-family:inherit;}
+      #ts-icon-pop .icon-pop-option{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:8px;border:none;background:rgba(255,255,255,.12);color:#fff;font-size:13px;cursor:pointer;font-family:inherit;transition:background .12s ease,transform .12s ease;}
       #ts-icon-pop .icon-pop-option .material-icons-outlined{font-size:20px;}
-      #ts-icon-pop .icon-pop-option:hover,#ts-icon-pop .icon-pop-option.active{background:rgba(255,255,255,.26);}
+      #ts-icon-pop .icon-pop-option:hover,#ts-icon-pop .icon-pop-option.active{background:rgba(255,255,255,.26);transform:translateY(-1px);}
 
       /* ---------- POS page color hardening ---------- */
       body.pos-ui #extension-side-bar a,
@@ -330,13 +335,6 @@
       body.pos-ui #cat-pop a,
       body.pos-ui #drawer-pop a { color:#fff !important; }
 
-      /* NEW: collapsed floating expand button */
-      #ts-collapsed-fab{ position:fixed; left:16px; bottom:16px; height:46px; width:46px; border-radius:14px;
-        display:none; align-items:center; justify-content:center; z-index:2001; border:none; cursor:pointer;
-        background:linear-gradient(180deg,var(--ts-purple-2),var(--ts-purple)); box-shadow:0 6px 18px rgba(0,0,0,.28),0 0 0 1px rgba(255,255,255,.16); color:#fff; }
-      #ts-collapsed-fab .material-icons-outlined{ font-size:24px; }
-      body.o_dark_theme #ts-collapsed-fab{ background:linear-gradient(180deg,var(--ts-dark-1),var(--ts-dark-2)); }
-      #extension-side-bar.collapsed ~ #ts-collapsed-fab{ display:flex; }
     `;
     document.head.appendChild(style);
 
@@ -391,14 +389,8 @@
     collapse.innerHTML = '<span class="material-icons-outlined">keyboard_double_arrow_left</span>';
     footer.append(ver, spacer1, lockBtn, spacer2, moon, spacer3, collapse);
 
-    // NEW: floating expand button for collapsed state
-    const collapsedFab = document.createElement('button');
-    collapsedFab.id = 'ts-collapsed-fab';
-    collapsedFab.title = 'Expand sidebar';
-    collapsedFab.innerHTML = '<span class="material-icons-outlined">keyboard_double_arrow_right</span>';
-
     sidebar.append(searchWrap, navWrap, footer);
-    document.body.append(sidebar, pop, drawerPop, collapsedFab);
+    document.body.append(sidebar, pop, drawerPop);
 
     const url = (p) => `https://${HOST}${p}`;
     const cleanPath = (u) => (u || '').replace(/[?#].*$/, '').replace(/\/+$/, '') || '/';
@@ -479,7 +471,10 @@
             catState[key] = !catState[key]; saveCatState(catState); applyCatState();
           });
           n.hd.addEventListener('keydown',(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); n.hd.click(); }});
-          n.hd.addEventListener('mouseenter', ()=>{ /* no pop when truly collapsed */ });
+          n.hd.addEventListener('mouseenter', ()=>{
+            if (sidebar.classList.contains('collapsed')) showPopFor(key);
+          });
+          n.hd.addEventListener('mouseleave', hidePopSoon);
         });
 
         // dblclick quick access = expand/collapse all
@@ -490,14 +485,37 @@
           saveCatState(catState); applyCatState();
         });
 
-        // legacy pop hover hidden now; keep listeners to maintain structure
         sidebar.addEventListener('mouseleave', hidePopSoon);
+        sidebar.addEventListener('mouseenter', ()=>{ if (!sidebar.classList.contains('collapsed')) pop.classList.remove('show'); });
+        pop.addEventListener('mouseenter', ()=>{ clearTimeout(popTimer); });
         pop.addEventListener('mouseleave', hidePopSoon);
       }
 
-      function showPopFor(){ /* disabled in true-collapsed mode */ }
+      function showPopFor(key){
+        clearTimeout(popTimer);
+        if (!sidebar.classList.contains('collapsed')){ pop.classList.remove('show'); return; }
+        const n = catNodes[key]; if (!n) return;
+        popTitle.textContent = n.name;
+        popList.innerHTML = '';
+        n.items.querySelectorAll('a').forEach(a=>{
+          if (a.style.display === 'none') return;
+          const row = document.createElement('a');
+          row.href = a.href;
+          row.textContent = a.querySelector('.sidebar-label')?.textContent || '';
+          popList.appendChild(row);
+        });
+        if (!popList.children.length){ pop.classList.remove('show'); return; }
+        const r = n.hd.getBoundingClientRect();
+        const top = Math.max(10, Math.min(window.innerHeight - 260, r.top));
+        pop.style.top = `${top}px`;
+        pop.style.left = `${r.right + 8}px`;
+        pop.classList.add('show');
+      }
       function hidePopSoon(){
-        pop.classList.remove('show');
+        clearTimeout(popTimer);
+        popTimer = setTimeout(()=>{
+          if (!sidebar.matches(':hover') && !pop.matches(':hover')) pop.classList.remove('show');
+        }, 120);
       }
 
       function offsetTopWithin(el, ancestor){ let y=0,n=el; while(n&&n!==ancestor){ y+=n.offsetTop||0; n=n.offsetParent; } return y; }
@@ -594,10 +612,10 @@
     /* ----- Layout switch & chrome ----- */
     Modules.Chrome = (function(){
       const EXP = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--ts-sidebar-w')) || 192;
+      const COL = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--ts-collapsed-w')) || 56;
 
       function pad(collapsed){
-        // NEW: collapsed = no left padding at all
-        const s = (collapsed ? 0 : EXP) + 'px';
+        const s = (collapsed ? COL : EXP) + 'px';
         document.body.style.paddingLeft = s;
         const header  = document.querySelector('header.o_main_navbar');
         const control = document.querySelector('.o_control_panel');
@@ -629,6 +647,7 @@
         pad(c); setCollapseIcon(c);
         Modules.Drawer.hideFlyImmediate && Modules.Drawer.hideFlyImmediate();
         pop.classList.remove('show');
+        Modules.Sidebar.positionDot();
         setTimeout(()=> sidebar.classList.remove('animating'), 180);
       }
       function expandNow(){
@@ -654,8 +673,6 @@
           if (!sidebar.classList.contains('collapsed')) collapseNow();
           else expandNow();
         });
-
-        collapsedFab.addEventListener('click', expandNow);
 
         moon.addEventListener('click', () => {
           const d = sidebar.classList.toggle('dark-mode');
@@ -784,10 +801,58 @@
         'note_alt','link','open_in_new','done','bookmark','flag','campaign','schedule','sell','price_check','phone_android',
         'devices','language','api','backup','calculate','call_split','bolt','star','favorite','support','help_outline'
       ];
+      const ICON_METADATA_URL = 'https://fonts.google.com/metadata/icons';
       let iconPop, iconPopSearch, iconPopGrid;
       let iconPopOnPick = null;
       let iconPopCurrent = '';
       let iconPopHideTimer = null;
+      let iconFetchPromise = null;
+      let allMaterialIcons = null;
+
+      function ensureFullIconSet(){
+        if (allMaterialIcons) return Promise.resolve(allMaterialIcons);
+        if (typeof fetch !== 'function'){
+          allMaterialIcons = Array.from(new Set(BASE_ICON_CHOICES));
+          return Promise.resolve(allMaterialIcons);
+        }
+        if (iconFetchPromise) return iconFetchPromise;
+        iconFetchPromise = fetch(ICON_METADATA_URL, { cache:'force-cache', mode:'cors' })
+          .then((res)=>{ if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.text(); })
+          .then((txt)=>{
+            const clean = txt.replace(/^[^\{\[]+/, '');
+            let data = {};
+            try{ data = JSON.parse(clean); }catch{ data = {}; }
+            const set = new Set(BASE_ICON_CHOICES);
+            const icons = Array.isArray(data.icons) ? data.icons : [];
+            icons.forEach((icon)=>{
+              if (!icon) return;
+              const name = icon.name || '';
+              const styles = Array.isArray(icon.styles) ? icon.styles : Array.isArray(icon.variants) ? icon.variants : [];
+              const families = Array.isArray(icon.families) ? icon.families : Array.isArray(icon.sets) ? icon.sets : [];
+              const norm = styles.map((s)=> String(s).toLowerCase());
+              const famNorm = families.map((s)=> String(s).toLowerCase());
+              const hasOutline = norm.includes('outline') || norm.includes('outlined') || famNorm.includes('outlined') || famNorm.includes('outline');
+              if (!hasOutline) return;
+              if (name) set.add(name);
+              if (Array.isArray(icon.aliases)){
+                icon.aliases.forEach((alias)=>{
+                  if (!alias) return;
+                  if (typeof alias === 'string') set.add(alias);
+                  else if (alias.name) set.add(alias.name);
+                });
+              }
+            });
+            allMaterialIcons = Array.from(set).filter(Boolean).sort((a,b)=> a.localeCompare(b));
+            return allMaterialIcons;
+          })
+          .catch((err)=>{
+            console.warn('[TS] Icon metadata fetch failed', err);
+            allMaterialIcons = Array.from(new Set(BASE_ICON_CHOICES));
+            return allMaterialIcons;
+          })
+          .finally(()=>{ iconFetchPromise = null; });
+        return iconFetchPromise;
+      }
 
       function ensureIconPop(){
         if (iconPop) return;
@@ -810,10 +875,16 @@
 
         iconPop.addEventListener('click', (ev)=> ev.stopPropagation());
         iconPopSearch.addEventListener('input', ()=> renderIconChoices(iconPopSearch.value));
+        ensureFullIconSet().then(()=>{
+          if (iconPop && iconPop.style.display !== 'none'){
+            renderIconChoices(iconPopSearch ? iconPopSearch.value : '');
+          }
+        });
       }
 
       function gatherIconChoices(){
         const set = new Set(BASE_ICON_CHOICES);
+        if (Array.isArray(allMaterialIcons)) allMaterialIcons.forEach((ic)=> set.add(ic));
         try {
           (CFG.nav.cats||[]).forEach(([, , ic])=>{ if (ic) set.add(ic); });
           Object.values(CFG.nav.items||{}).forEach((arr)=>{
@@ -843,7 +914,7 @@
         });
         if (!icons.length){
           const empty = document.createElement('div');
-          empty.textContent = 'No icons found';
+          empty.textContent = iconFetchPromise ? 'Loading icons…' : 'No icons found';
           empty.style.opacity = '.7';
           empty.style.fontSize = '12px';
           empty.style.padding = '10px 4px';
@@ -878,6 +949,11 @@
           iconPop.classList.add('active');
           iconPopSearch?.focus();
         });
+        ensureFullIconSet().then(()=>{
+          if (iconPop && iconPop.style.display !== 'none'){
+            renderIconChoices(iconPopSearch ? iconPopSearch.value : '');
+          }
+        });
         setTimeout(()=> window.addEventListener('click', handleIconPopOutside, true), 0);
       }
 
@@ -899,48 +975,32 @@
       function createIconPicker(initial, onChange){
         ensureIconPop();
         const wrap = document.createElement('div'); wrap.className='icon-picker';
-        const preview = document.createElement('span'); preview.className='icon-preview material-icons-outlined';
-        const input = document.createElement('input'); input.type='text'; input.placeholder='icon';
-        const btn = document.createElement('button'); btn.type='button'; btn.title='Pick icon'; btn.textContent='apps';
+        const btn = document.createElement('button'); btn.type='button'; btn.title='Pick icon';
+        const ico = document.createElement('span'); ico.className='material-icons-outlined';
+        btn.appendChild(ico);
 
         function set(val){
           const v = val ? val.trim() : '';
-          preview.textContent = v || 'help_outline';
-          input.value = v;
+          ico.textContent = v || 'help_outline';
+          btn.dataset.icon = v;
+          btn.title = v ? `Icon: ${v}` : 'Pick icon';
         }
 
         set(initial || '');
 
         wrap.addEventListener('click', (ev)=> ev.stopPropagation());
-        input.addEventListener('click', (ev)=> ev.stopPropagation());
-        input.addEventListener('input', ()=>{
-          const v = input.value.trim();
-          preview.textContent = v || 'help_outline';
-          onChange(v);
-          if (iconPop && iconPop.style.display !== 'none'){
-            iconPopCurrent = v;
-            renderIconChoices(iconPopSearch ? iconPopSearch.value : '');
-          }
-        });
-        input.addEventListener('blur', ()=>{
-          const v = input.value.trim();
-          set(v);
-          onChange(v);
-          if (iconPop && iconPop.style.display !== 'none'){
-            iconPopCurrent = v;
-            renderIconChoices(iconPopSearch ? iconPopSearch.value : '');
-          }
-        });
         btn.addEventListener('click', (ev)=>{
           ev.stopPropagation();
-          openIconPop(btn, input.value.trim(), (choice)=>{
-            set(choice);
-            onChange(choice);
-            iconPopCurrent = choice || '';
+          const current = btn.dataset.icon || '';
+          openIconPop(btn, current, (choice)=>{
+            const picked = choice || '';
+            set(picked);
+            onChange(picked);
+            iconPopCurrent = picked;
           });
         });
 
-        wrap.append(preview, input, btn);
+        wrap.append(btn);
         return { el: wrap, set };
       }
 
@@ -1217,13 +1277,15 @@
         must(document.querySelector('.cat-hd'), 'Category headers missing');
         must(document.querySelector('#sidebar-version'), 'Version control missing');
 
-        // Collapsed FAB presence when collapsed
+        // Collapsed behaviour sanity
         try{
           const prev = localStorage.getItem('sidebarCollapsed');
           localStorage.setItem('sidebarCollapsed','true');
-          document.querySelector('#extension-side-bar')?.classList.add('collapsed');
-          must(!!document.querySelector('#ts-collapsed-fab'), 'Collapsed FAB missing');
-          // restore key (do not auto-expand to avoid flicker)
+          const sb = document.querySelector('#extension-side-bar');
+          sb?.classList.add('collapsed');
+          const w = sb ? sb.getBoundingClientRect().width : 0;
+          must(!!sb && sb.classList.contains('collapsed'), 'Sidebar failed to collapse');
+          must(w <= 64 && w >= 40, 'Collapsed width unexpected');
           if (prev !== null) localStorage.setItem('sidebarCollapsed', prev);
         }catch{}
 
