@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "TekStore Odoo Sidebar",
+  "version": "8.2.8",
+  "description": "TekStore sidebar + lock overlay with PIN verification via Odoo",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://odoo.tek.store/*",
+    "https://staging-odoo.tek.store/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://odoo.tek.store/*",
+        "https://staging-odoo.tek.store/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ]
+}
