@@ -1,10 +1,15 @@
-// TekStore Odoo Sidebar + Lock Overlay v8.3.4
+// TekStore Odoo Sidebar + Lock Overlay v8.3.8
 // -----------------------------------------------------------------------------
 // CHANGELOG
+// - 8.3.8  Restore legacy lock overlay logic, remember collapse state reliably,
+//          and let settings add categories/links with clearer white footer text.
+// - 8.3.6  Align Odoo content flush with the sidebar, improve drawer flyout
+//          stability, refresh layout names, and polish settings editing cues.
+// - 8.3.5  Collapsed mode leaves only a bottom-left expand pill. Settings now
+//          include a Material Icon picker for categories and links.
 // - 8.3.4  Collapsed mode shows only a tiny expand FAB bottom-right (no sidebar
 //          column, no hover popovers). Settings simplified: categories can be
 //          renamed + shown/hidden, and you select a category to edit its links.
-//          Self-test extended to check collapsed FAB visibility.
 // - 8.3.3  Modularised (flags + modules), Option1 restore (expand-memory,
 //          dblclick all), Option2 drawer (no title in flyout), Settings modal
 //          (dbl-click version) with layout + timeout + editable nav.
@@ -30,7 +35,7 @@
 
   /* ========================== CORE FLAGS & VERSION ========================== */
   const TS = window.__TS__ || (window.__TS__ = {});
-  TS.VERSION = '8.3.4';
+  TS.VERSION = '8.3.8';
   TS.flags = {
     opt2Drawer: true,
     settingsModal: true,
@@ -143,19 +148,33 @@
     version: SCHEMA.version,
     layout: 'opt1',
     timeoutMin: 5,
+    collapsed: false,
     nav: DEFAULT_NAV
   };
 
+  function cloneDefaults(){
+    return JSON.parse(JSON.stringify(DEFAULTS));
+  }
   function loadConfig(){
     let c;
     try { c = JSON.parse(localStorage.getItem('ts-config')); } catch {}
     if (!c) {
+      const seed = cloneDefaults();
       const legacy = localStorage.getItem('ts-layout-mode');
-      if (legacy) DEFAULTS.layout = legacy;
-      return {...DEFAULTS};
+      if (legacy) seed.layout = legacy;
+      const storedCollapse = localStorage.getItem('sidebarCollapsed');
+      if (storedCollapse === 'true' || storedCollapse === 'false') {
+        seed.collapsed = storedCollapse === 'true';
+      }
+      return seed;
     }
     if (!c.version) c.version = 1;
-    return migrateConfig(c);
+    const migrated = migrateConfig(c);
+    if (typeof migrated.collapsed !== 'boolean'){
+      const stored = localStorage.getItem('sidebarCollapsed');
+      migrated.collapsed = stored === 'true';
+    }
+    return migrated;
   }
   function migrateConfig(c){
     if (c.version === 1){
@@ -163,9 +182,11 @@
         version: 2,
         layout: c.layout || 'opt1',
         timeoutMin: typeof c.timeoutMin === 'number' ? c.timeoutMin : 5,
+        collapsed: typeof c.collapsed === 'boolean' ? c.collapsed : false,
         nav: c.nav || DEFAULT_NAV
       };
     }
+    if (typeof c.collapsed !== 'boolean') c.collapsed = false;
     c.version = SCHEMA.version;
     return c;
   }
@@ -205,13 +226,20 @@
       }
       #extension-side-bar{position:fixed;top:0;left:0;height:100vh;width:var(--ts-sidebar-w);
         background:linear-gradient(180deg,var(--ts-purple-2),var(--ts-purple)); color:#fff;display:flex;flex-direction:column;overflow:hidden;
-        border-right:1px solid rgba(0,0,0,.25);box-shadow:4px 0 22px rgba(43,18,43,.15);transition:width .18s ease, opacity .14s ease;z-index:900;
+        border-right:1px solid rgba(0,0,0,.25);box-shadow:4px 0 22px rgba(43,18,43,.15);transition:width .18s ease;z-index:900;
         font-family: var(--o-font-family, Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans"); font-size:13px; line-height:1.2;}
       #extension-side-bar.dark-mode{background:linear-gradient(180deg,var(--ts-dark-1),var(--ts-dark-2))!important;color:#e9e9ea!important;}
 
-      /* NEW: true-collapsed hides the bar entirely */
-      #extension-side-bar.collapsed{width:0!important; opacity:0; pointer-events:none;}
-      /* the old collapsed visuals are never shown now */
+      #extension-side-bar.collapsed{width:var(--ts-collapsed-w)!important;}
+      #extension-side-bar.collapsed #sidebar-search-wrap{visibility:hidden;pointer-events:none;}
+      #extension-side-bar.collapsed .cat{margin:6px 0;padding:0;}
+      #extension-side-bar.collapsed .cat-hd{justify-content:center;padding:0;}
+      #extension-side-bar.collapsed .cat-name,
+      #extension-side-bar.collapsed .cat-caret,
+      #extension-side-bar.collapsed .cat-items{display:none!important;}
+      #extension-side-bar.collapsed .pill:not(#sidebar-collapse-toggle){display:none;}
+      #extension-side-bar.collapsed #sidebar-version{display:none;}
+      #extension-side-bar.collapsed #sidebar-dark-moon{display:none;}
 
       #sidebar-search-wrap{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;
         background:linear-gradient(180deg,var(--ts-purple-2),var(--ts-purple-2));padding:6px 8px 4px; min-height:38px;}
@@ -252,7 +280,7 @@
         transition:opacity .14s ease,transform .14s ease;font-family: var(--o-font-family, Inter, system-ui, -apple-system, "Segoe UI", Roboto);font-size:14px;}
       #extension-side-bar.dark-mode ~ #cat-pop{background:linear-gradient(180deg,var(--ts-dark-1),var(--ts-dark-2));}
       #cat-pop.show{display:flex;opacity:1;transform:scale(1);}
-      #cat-pop .pop-title{display:none;}
+      #cat-pop .pop-title{padding:8px 12px 4px 12px;font-size:14px;font-weight:600;letter-spacing:.01em;opacity:.95;}
       #cat-pop .pop-list a{display:block;height:28px;line-height:28px;padding:0 12px;margin:2px 8px;border-radius:8px;color:#fff;text-decoration:none;font-size:14px;}
       #cat-pop .pop-list a:hover{background:rgba(255,255,255,.12);}
 
@@ -260,7 +288,7 @@
       #extension-side-bar-footer{flex:0 0 auto;display:flex;align-items:center;height:36px;padding:0 8px;border-top:1px solid rgba(0,0,0,.25);}
       .pill{height:28px;width:28px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:rgba(255,255,255,.16);cursor:pointer;border:none;}
       .pill .material-icons-outlined{font-size:20px;color:#fff;}
-      #sidebar-version{font-size:12px;opacity:.8;text-decoration:none;color:inherit;display:inline-flex;align-items:center;cursor:pointer;}
+      #sidebar-version{font-size:12px;opacity:.9;text-decoration:none;color:#fff;display:inline-flex;align-items:center;cursor:pointer;}
       .ts-flex{flex:1 1 auto;}
 
       /* ---------- Option 2 (drawer) ---------- */
@@ -308,6 +336,18 @@
       #ts-settings .chip{height:24px;display:inline-flex;align-items:center;border-radius:999px;padding:0 8px;background:rgba(255,255,255,.12);font-size:12px;}
       #ts-settings .x{position:absolute;right:8px;top:8px;height:28px;width:28px;border-radius:8px;border:none;background:rgba(255,255,255,.16);color:#fff;cursor:pointer}
       #ts-settings .x:hover{background:rgba(255,255,255,.26)}
+      #ts-settings .icon-picker{display:flex;align-items:center;}
+      #ts-settings .icon-picker button{height:30px;width:30px;border:none;border-radius:8px;background:rgba(255,255,255,.16);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:"Material Icons Outlined";font-size:18px;transition:background .14s ease,transform .14s ease;}
+      #ts-settings .icon-picker button:hover{background:rgba(255,255,255,.26);transform:translateY(-1px);}
+      #ts-icon-pop{position:fixed;display:flex;flex-direction:column;min-width:240px;max-width:320px;max-height:320px;overflow:hidden;border-radius:12px;background:linear-gradient(180deg,var(--ts-purple-2),var(--ts-purple));box-shadow:0 18px 50px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.14);opacity:0;transform:translateY(6px) scale(.98);pointer-events:none;transition:opacity .14s ease,transform .14s ease;z-index:4000;}
+      body.o_dark_theme #ts-icon-pop{background:linear-gradient(180deg,var(--ts-dark-1),var(--ts-dark-2));}
+      #ts-icon-pop.active{opacity:1;transform:translateY(0) scale(1);pointer-events:auto;}
+      #ts-icon-pop .icon-pop-search{display:flex;align-items:center;gap:6px;padding:10px 10px 6px;}
+      #ts-icon-pop .icon-pop-search input{flex:1;height:28px;border:none;border-radius:8px;padding:0 8px;background:rgba(255,255,255,.18);color:#fff;outline:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);font-size:13px;}
+      #ts-icon-pop .icon-pop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;padding:4px 10px 12px;overflow:auto;}
+      #ts-icon-pop .icon-pop-option{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:8px;border:none;background:rgba(255,255,255,.12);color:#fff;font-size:13px;cursor:pointer;font-family:inherit;transition:background .12s ease,transform .12s ease;}
+      #ts-icon-pop .icon-pop-option .material-icons-outlined{font-size:20px;}
+      #ts-icon-pop .icon-pop-option:hover,#ts-icon-pop .icon-pop-option.active{background:rgba(255,255,255,.26);transform:translateY(-1px);}
 
       /* ---------- POS page color hardening ---------- */
       body.pos-ui #extension-side-bar a,
@@ -315,13 +355,6 @@
       body.pos-ui #cat-pop a,
       body.pos-ui #drawer-pop a { color:#fff !important; }
 
-      /* NEW: collapsed floating expand button */
-      #ts-collapsed-fab{ position:fixed; right:16px; bottom:16px; height:44px; width:44px; border-radius:12px;
-        display:none; align-items:center; justify-content:center; z-index:2001; border:none; cursor:pointer;
-        background:linear-gradient(180deg,var(--ts-purple-2),var(--ts-purple)); box-shadow:0 6px 18px rgba(0,0,0,.28),0 0 0 1px rgba(255,255,255,.16); color:#fff; }
-      #ts-collapsed-fab .material-icons-outlined{ font-size:22px; }
-      body.o_dark_theme #ts-collapsed-fab{ background:linear-gradient(180deg,var(--ts-dark-1),var(--ts-dark-2)); }
-      #extension-side-bar.collapsed ~ #ts-collapsed-fab{ display:flex; }
     `;
     document.head.appendChild(style);
 
@@ -376,14 +409,8 @@
     collapse.innerHTML = '<span class="material-icons-outlined">keyboard_double_arrow_left</span>';
     footer.append(ver, spacer1, lockBtn, spacer2, moon, spacer3, collapse);
 
-    // NEW: floating expand button for collapsed state
-    const collapsedFab = document.createElement('button');
-    collapsedFab.id = 'ts-collapsed-fab';
-    collapsedFab.title = 'Expand sidebar';
-    collapsedFab.innerHTML = '<span class="material-icons-outlined">keyboard_double_arrow_right</span>';
-
     sidebar.append(searchWrap, navWrap, footer);
-    document.body.append(sidebar, pop, drawerPop, collapsedFab);
+    document.body.append(sidebar, pop, drawerPop);
 
     const url = (p) => `https://${HOST}${p}`;
     const cleanPath = (u) => (u || '').replace(/[?#].*$/, '').replace(/\/+$/, '') || '/';
@@ -451,7 +478,7 @@
 
       function applyCatState(){
         Object.entries(catNodes).forEach(([k,n])=>{
-          const open = k==='quick' ? true : !!catState[k];
+          const open = k==='quick' ? true : catState[k] !== false;
           n.cat.classList.toggle('open', open);
         });
         positionDot();
@@ -464,7 +491,10 @@
             catState[key] = !catState[key]; saveCatState(catState); applyCatState();
           });
           n.hd.addEventListener('keydown',(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); n.hd.click(); }});
-          n.hd.addEventListener('mouseenter', ()=>{ /* no pop when truly collapsed */ });
+          n.hd.addEventListener('mouseenter', ()=>{
+            if (sidebar.classList.contains('collapsed')) showPopFor(key);
+          });
+          n.hd.addEventListener('mouseleave', hidePopSoon);
         });
 
         // dblclick quick access = expand/collapse all
@@ -475,14 +505,37 @@
           saveCatState(catState); applyCatState();
         });
 
-        // legacy pop hover hidden now; keep listeners to maintain structure
         sidebar.addEventListener('mouseleave', hidePopSoon);
+        sidebar.addEventListener('mouseenter', ()=>{ if (!sidebar.classList.contains('collapsed')) pop.classList.remove('show'); });
+        pop.addEventListener('mouseenter', ()=>{ clearTimeout(popTimer); });
         pop.addEventListener('mouseleave', hidePopSoon);
       }
 
-      function showPopFor(){ /* disabled in true-collapsed mode */ }
+      function showPopFor(key){
+        clearTimeout(popTimer);
+        if (!sidebar.classList.contains('collapsed')){ pop.classList.remove('show'); return; }
+        const n = catNodes[key]; if (!n) return;
+        popTitle.textContent = n.name;
+        popList.innerHTML = '';
+        n.items.querySelectorAll('a').forEach(a=>{
+          if (a.style.display === 'none') return;
+          const row = document.createElement('a');
+          row.href = a.href;
+          row.textContent = a.querySelector('.sidebar-label')?.textContent || '';
+          popList.appendChild(row);
+        });
+        if (!popList.children.length){ pop.classList.remove('show'); return; }
+        const r = n.hd.getBoundingClientRect();
+        const top = Math.max(10, Math.min(window.innerHeight - 260, r.top));
+        pop.style.top = `${top}px`;
+        pop.style.left = `${r.right + 8}px`;
+        pop.classList.add('show');
+      }
       function hidePopSoon(){
-        pop.classList.remove('show');
+        clearTimeout(popTimer);
+        popTimer = setTimeout(()=>{
+          if (!sidebar.matches(':hover') && !pop.matches(':hover')) pop.classList.remove('show');
+        }, 120);
       }
 
       function offsetTopWithin(el, ancestor){ let y=0,n=el; while(n&&n!==ancestor){ y+=n.offsetTop||0; n=n.offsetParent; } return y; }
@@ -545,10 +598,12 @@
             if (drawerPop.classList.contains('show')) hideFlyImmediate(); else showFlyFor(n.key);
           }, {passive:true});
         });
+        drawerPop.addEventListener('mouseenter', ()=>{ if (flyTimer) { clearTimeout(flyTimer); flyTimer = 0; } });
         drawerPop.addEventListener('mouseleave', hideFlySoon);
       }
 
       function showFlyFor(key){
+        if (flyTimer) { clearTimeout(flyTimer); flyTimer = 0; }
         if (sidebar.classList.contains('collapsed')) return; // no flyouts when collapsed
         const n = appNodes[key]; if (!n) return;
         drawerPopList.innerHTML = '';
@@ -565,12 +620,20 @@
         drawerPop.style.left = leftBase + 'px';
         drawerPop.classList.add('show');
       }
-      function hideFlyImmediate(){ drawerPop.classList.remove('show'); }
+      function hideFlyImmediate(){
+        drawerPop.classList.remove('show');
+        if (flyTimer) { clearTimeout(flyTimer); flyTimer = 0; }
+      }
       function hideFlySoon(){
-        clearTimeout(flyTimer);
+        if (flyTimer) clearTimeout(flyTimer);
         flyTimer = setTimeout(()=>{
-          if (!drawerPop.matches(':hover')) hideFlyImmediate();
-        }, 140);
+          if (!drawerPop.matches(':hover')) {
+            hideFlyImmediate();
+          } else {
+            clearTimeout(flyTimer);
+            flyTimer = 0;
+          }
+        }, 520);
       }
 
       return { init(){ if (TS.flags.opt2Drawer) build(); }, rebuild: build, hideFlyImmediate };
@@ -579,17 +642,18 @@
     /* ----- Layout switch & chrome ----- */
     Modules.Chrome = (function(){
       const EXP = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--ts-sidebar-w')) || 192;
+      const COL = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--ts-collapsed-w')) || 56;
+
+      let header  = null;
+      let control = null;
+      let manager = null;
 
       function pad(collapsed){
-        // NEW: collapsed = no left padding at all
-        const s = (collapsed ? 0 : EXP) + 'px';
-        document.body.style.paddingLeft = s;
-        const header  = document.querySelector('header.o_main_navbar');
-        const control = document.querySelector('.o_control_panel');
-        const manager = document.querySelector('.o_action_manager');
-        if (header)  header.style.left         = s;
-        if (control) control.style.paddingLeft = s;
-        if (manager) manager.style.paddingLeft = s;
+        const px = (collapsed ? COL : EXP) + 'px';
+        document.body.style.paddingLeft = px;
+        if (header) header.style.left = px;
+        if (control) control.style.paddingLeft = px;
+        if (manager) manager.style.paddingLeft = px;
         window.dispatchEvent(new Event('resize'));
       }
 
@@ -607,30 +671,49 @@
 
       function setCollapseIcon(c){ collapse.firstElementChild.textContent = c ? 'keyboard_double_arrow_right' : 'keyboard_double_arrow_left'; }
 
+      function persistCollapse(state){
+        CFG.collapsed = !!state;
+        localStorage.setItem('sidebarCollapsed', String(!!state));
+      }
+
       function collapseNow(){
         sidebar.classList.add('animating');
         const c = sidebar.classList.toggle('collapsed', true);
-        localStorage.setItem('sidebarCollapsed', String(c));
+        persistCollapse(c);
         pad(c); setCollapseIcon(c);
         Modules.Drawer.hideFlyImmediate && Modules.Drawer.hideFlyImmediate();
         pop.classList.remove('show');
+        Modules.Sidebar.positionDot();
         setTimeout(()=> sidebar.classList.remove('animating'), 180);
       }
       function expandNow(){
         sidebar.classList.add('animating');
         sidebar.classList.remove('collapsed');
-        localStorage.setItem('sidebarCollapsed', 'false');
+        persistCollapse(false);
         pad(false); setCollapseIcon(false);
         setTimeout(()=> sidebar.classList.remove('animating'), 180);
         setTimeout(()=>Modules.Sidebar.positionDot(), 0);
       }
 
       function init(){
-        const wasCol = localStorage.getItem('sidebarCollapsed')==='true';
+        ['.o_main_content','.o_content','.o_web_client','#wrapwrap','.o_control_panel','.o_action_manager','header.o_main_navbar']
+          .forEach(sel => document.querySelectorAll(sel).forEach(el => {
+            el.style.left='';
+            el.style.paddingLeft='';
+            el.style.marginLeft='';
+          }));
+
+        header  = document.querySelector('header.o_main_navbar');
+        control = document.querySelector('.o_control_panel');
+        manager = document.querySelector('.o_action_manager');
+
+        const storedCollapse = localStorage.getItem('sidebarCollapsed');
+        const wasCol = typeof CFG.collapsed === 'boolean' ? CFG.collapsed : storedCollapse === 'true';
         const wasDark= localStorage.getItem('sidebarDarkMode')==='on';
         sidebar.classList.toggle('collapsed', wasCol);
         sidebar.classList.toggle('dark-mode', wasDark);
         document.body.classList.toggle('o_dark_theme', wasDark);
+        persistCollapse(wasCol);
         pad(wasCol);
         setCollapseIcon(wasCol);
         applyLayoutClass();
@@ -639,8 +722,6 @@
           if (!sidebar.classList.contains('collapsed')) collapseNow();
           else expandNow();
         });
-
-        collapsedFab.addEventListener('click', expandNow);
 
         moon.addEventListener('click', () => {
           const d = sidebar.classList.toggle('dark-mode');
@@ -756,15 +837,242 @@
     Modules.Settings = (function(){
       if (!TS.flags.settingsModal) return { init(){} };
 
-      let host, shade, panel, leftSeg, rightSeg, saveBtn, resetBtn, closeBtn;
+      let host, shade, panel, leftSeg, rightSeg, saveBtn, closeBtn;
       let selectedKey = null;
+
+      const BASE_ICON_CHOICES = [
+        'widgets','event','supervisor_account','build','inventory_2','store','workspaces','account_balance_wallet',
+        'point_of_sale','forum','dashboard','event_available','groups','manage_accounts','request_quote','shopping_bag',
+        'receipt_long','build_circle','autorenew','architecture','important_devices','category','undo','sync_alt',
+        'checklist','arrow_forward','arrow_back','description','shopping_cart','monetization_on','account_tree','menu_book',
+        'school','folder_open','payments','today','currency_pound','add_circle','apps','settings','home','lock','insights',
+        'leaderboard','list_alt','shopping_cart_checkout','warehouse','inventory','local_shipping','bar_chart','assessment',
+        'note_alt','link','open_in_new','done','bookmark','flag','campaign','schedule','sell','price_check','phone_android',
+        'devices','language','api','backup','calculate','call_split','bolt','star','favorite','support','help_outline'
+      ];
+      const ICON_METADATA_URL = 'https://fonts.google.com/metadata/icons';
+      let iconPop, iconPopSearch, iconPopGrid;
+      let iconPopOnPick = null;
+      let iconPopCurrent = '';
+      let iconPopHideTimer = null;
+      let iconFetchPromise = null;
+      let allMaterialIcons = null;
+
+      function ensureFullIconSet(){
+        if (allMaterialIcons) return Promise.resolve(allMaterialIcons);
+        if (typeof fetch !== 'function'){
+          allMaterialIcons = Array.from(new Set(BASE_ICON_CHOICES));
+          return Promise.resolve(allMaterialIcons);
+        }
+        if (iconFetchPromise) return iconFetchPromise;
+        iconFetchPromise = fetch(ICON_METADATA_URL, { cache:'force-cache', mode:'cors' })
+          .then((res)=>{ if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.text(); })
+          .then((txt)=>{
+            const clean = txt.replace(/^[^\{\[]+/, '');
+            let data = {};
+            try{ data = JSON.parse(clean); }catch{ data = {}; }
+            const set = new Set(BASE_ICON_CHOICES);
+            const icons = Array.isArray(data.icons) ? data.icons : [];
+            icons.forEach((icon)=>{
+              if (!icon) return;
+              const name = icon.name || '';
+              const styles = Array.isArray(icon.styles) ? icon.styles : Array.isArray(icon.variants) ? icon.variants : [];
+              const families = Array.isArray(icon.families) ? icon.families : Array.isArray(icon.sets) ? icon.sets : [];
+              const norm = styles.map((s)=> String(s).toLowerCase());
+              const famNorm = families.map((s)=> String(s).toLowerCase());
+              const hasOutline = norm.includes('outline') || norm.includes('outlined') || famNorm.includes('outlined') || famNorm.includes('outline');
+              if (!hasOutline) return;
+              if (name) set.add(name);
+              if (Array.isArray(icon.aliases)){
+                icon.aliases.forEach((alias)=>{
+                  if (!alias) return;
+                  if (typeof alias === 'string') set.add(alias);
+                  else if (alias.name) set.add(alias.name);
+                });
+              }
+            });
+            allMaterialIcons = Array.from(set).filter(Boolean).sort((a,b)=> a.localeCompare(b));
+            return allMaterialIcons;
+          })
+          .catch((err)=>{
+            console.warn('[TS] Icon metadata fetch failed', err);
+            allMaterialIcons = Array.from(new Set(BASE_ICON_CHOICES));
+            return allMaterialIcons;
+          })
+          .finally(()=>{ iconFetchPromise = null; });
+        return iconFetchPromise;
+      }
+
+      function ensureIconPop(){
+        if (iconPop) return;
+        iconPop = document.createElement('div');
+        iconPop.id = 'ts-icon-pop';
+        iconPop.style.display = 'none';
+
+        const searchWrap = document.createElement('div');
+        searchWrap.className = 'icon-pop-search';
+        iconPopSearch = document.createElement('input');
+        iconPopSearch.type = 'text';
+        iconPopSearch.placeholder = 'Search icons';
+        searchWrap.append(iconPopSearch);
+
+        iconPopGrid = document.createElement('div');
+        iconPopGrid.className = 'icon-pop-grid';
+
+        iconPop.append(searchWrap, iconPopGrid);
+        document.body.appendChild(iconPop);
+
+        iconPop.addEventListener('click', (ev)=> ev.stopPropagation());
+        iconPopSearch.addEventListener('input', ()=> renderIconChoices(iconPopSearch.value));
+        ensureFullIconSet().then(()=>{
+          if (iconPop && iconPop.style.display !== 'none'){
+            renderIconChoices(iconPopSearch ? iconPopSearch.value : '');
+          }
+        });
+      }
+
+      function gatherIconChoices(){
+        const set = new Set(BASE_ICON_CHOICES);
+        if (Array.isArray(allMaterialIcons)) allMaterialIcons.forEach((ic)=> set.add(ic));
+        try {
+          (CFG.nav.cats||[]).forEach(([, , ic])=>{ if (ic) set.add(ic); });
+          Object.values(CFG.nav.items||{}).forEach((arr)=>{
+            (arr||[]).forEach(([, ic])=>{ if (ic) set.add(ic); });
+          });
+        } catch {}
+        return Array.from(set).filter(Boolean).sort((a,b)=> a.localeCompare(b));
+      }
+
+      function renderIconChoices(term){
+        if (!iconPopGrid) return;
+        const q = String(term||'').toLowerCase().trim();
+        iconPopGrid.innerHTML = '';
+        const icons = gatherIconChoices().filter((name)=> name.toLowerCase().includes(q));
+        icons.forEach((name)=>{
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'icon-pop-option' + (name === iconPopCurrent ? ' active' : '');
+          const ico = document.createElement('span'); ico.className='material-icons-outlined'; ico.textContent=name;
+          const label = document.createElement('span'); label.textContent = name;
+          btn.append(ico, label);
+          btn.addEventListener('click', ()=>{
+            if (iconPopOnPick) iconPopOnPick(name);
+            closeIconPop();
+          });
+          iconPopGrid.appendChild(btn);
+        });
+        if (!icons.length){
+          const empty = document.createElement('div');
+          empty.textContent = iconFetchPromise ? 'Loading icons…' : 'No icons found';
+          empty.style.opacity = '.7';
+          empty.style.fontSize = '12px';
+          empty.style.padding = '10px 4px';
+          iconPopGrid.appendChild(empty);
+        }
+      }
+
+      function handleIconPopOutside(ev){
+        if (!iconPop || iconPop.style.display === 'none') return;
+        if (!iconPop.contains(ev.target)) closeIconPop();
+      }
+
+      function openIconPop(anchor, current, onPick){
+        ensureIconPop();
+        if (iconPopHideTimer) { clearTimeout(iconPopHideTimer); iconPopHideTimer = null; }
+        window.removeEventListener('click', handleIconPopOutside, true);
+        iconPopOnPick = onPick;
+        iconPopCurrent = current || '';
+        iconPopSearch.value = '';
+        renderIconChoices('');
+        iconPop.style.display = 'flex';
+        iconPop.classList.remove('active');
+        const rect = anchor.getBoundingClientRect();
+        const dims = iconPop.getBoundingClientRect();
+        const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+        const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+        const left = Math.min(Math.max(rect.left, 12), Math.max(12, vw - dims.width - 12));
+        const top = Math.min(Math.max(rect.bottom + 8, 12), Math.max(12, vh - dims.height - 12));
+        iconPop.style.left = `${left}px`;
+        iconPop.style.top = `${top}px`;
+        requestAnimationFrame(()=>{
+          iconPop.classList.add('active');
+          iconPopSearch?.focus();
+        });
+        ensureFullIconSet().then(()=>{
+          if (iconPop && iconPop.style.display !== 'none'){
+            renderIconChoices(iconPopSearch ? iconPopSearch.value : '');
+          }
+        });
+        setTimeout(()=> window.addEventListener('click', handleIconPopOutside, true), 0);
+      }
+
+      function closeIconPop(){
+        if (!iconPop || iconPop.style.display === 'none') return;
+        iconPop.classList.remove('active');
+        if (iconPopHideTimer) clearTimeout(iconPopHideTimer);
+        const ref = iconPop;
+        iconPopHideTimer = setTimeout(()=>{
+          if (ref) ref.style.display = 'none';
+          iconPopHideTimer = null;
+        }, 140);
+        window.removeEventListener('click', handleIconPopOutside, true);
+        iconPopOnPick = null;
+        iconPopCurrent = '';
+        if (iconPopSearch) iconPopSearch.value = '';
+      }
+
+      function ensureNavStructures(){
+        if (!CFG.nav) CFG.nav = { cats: [], items: {} };
+        if (!Array.isArray(CFG.nav.cats)) CFG.nav.cats = [];
+        if (!CFG.nav.items || typeof CFG.nav.items !== 'object') CFG.nav.items = {};
+      }
+
+      function makeCatKey(){
+        ensureNavStructures();
+        const used = new Set((CFG.nav.cats||[]).map(([key])=> key));
+        let key = '';
+        do { key = `cat_${Math.random().toString(36).slice(2,8)}`; } while (used.has(key));
+        return key;
+      }
+
+      function createIconPicker(initial, onChange){
+        ensureIconPop();
+        const wrap = document.createElement('div'); wrap.className='icon-picker';
+        const btn = document.createElement('button'); btn.type='button'; btn.title='Pick icon';
+        const ico = document.createElement('span'); ico.className='material-icons-outlined';
+        btn.appendChild(ico);
+
+        function set(val){
+          const v = val ? val.trim() : '';
+          ico.textContent = v || 'help_outline';
+          btn.dataset.icon = v;
+          btn.title = v ? `Icon: ${v}` : 'Pick icon';
+        }
+
+        set(initial || '');
+
+        wrap.addEventListener('click', (ev)=> ev.stopPropagation());
+        btn.addEventListener('click', (ev)=>{
+          ev.stopPropagation();
+          const current = btn.dataset.icon || '';
+          openIconPop(btn, current, (choice)=>{
+            const picked = choice || '';
+            set(picked);
+            onChange(picked);
+            iconPopCurrent = picked;
+          });
+        });
+
+        wrap.append(btn);
+        return { el: wrap, set };
+      }
 
       function open(){
         if (!host) build();
         host.style.display = 'flex';
         render();
       }
-      function close(){ host.style.display = 'none'; }
+      function close(){ if (host) host.style.display = 'none'; closeIconPop(); }
 
       function build(){
         host = document.createElement('div'); host.id='ts-settings';
@@ -773,8 +1081,11 @@
 
         const title = document.createElement('h3'); title.textContent = 'TekStore — Settings';
         closeBtn = document.createElement('button'); closeBtn.className='x'; closeBtn.innerHTML='✕';
-        resetBtn = document.createElement('button'); resetBtn.className='btn'; resetBtn.textContent='Reset to defaults';
-        const topRow = document.createElement('div'); topRow.style.display='flex'; topRow.style.justifyContent='space-between'; topRow.style.alignItems='center'; topRow.append(title, resetBtn, closeBtn);
+        const topRow = document.createElement('div'); topRow.style.display='flex'; topRow.style.justifyContent='space-between';
+        topRow.style.alignItems='center';
+        const titleWrap = document.createElement('div'); titleWrap.style.display='flex'; titleWrap.style.alignItems='center';
+        titleWrap.append(title);
+        topRow.append(titleWrap, closeBtn);
 
         const row = document.createElement('div'); row.className='row';
         leftSeg = document.createElement('div'); leftSeg.className='seg';
@@ -791,12 +1102,6 @@
 
         shade.addEventListener('click', close);
         closeBtn.addEventListener('click', close);
-        resetBtn.addEventListener('click', ()=>{
-          CFG = JSON.parse(JSON.stringify(DEFAULTS));
-          saveConfig(CFG);
-          selectedKey = (CFG.nav.cats.find(c=>c[3]!==false)||CFG.nav.cats[0]||[])[0] || null;
-          render(); refreshUI();
-        });
         saveBtn.addEventListener('click', ()=>{
           saveConfig(CFG); close(); refreshUI();
         });
@@ -806,12 +1111,14 @@
       }
 
       function render(){
+        closeIconPop();
+        ensureNavStructures();
         // LEFT: layout + timeout + simple categories (rename + show/hide + select)
         leftSeg.innerHTML = '';
         const layoutTitle = document.createElement('div'); layoutTitle.className='chip'; layoutTitle.textContent = 'Layout';
         const layoutWrap = document.createElement('div'); layoutWrap.style.margin='8px 0 12px';
-        const r1 = mkRadio('layout', 'opt1', 'Option 1', CFG.layout==='opt1', (v)=>{ CFG.layout=v; });
-        const r2 = mkRadio('layout', 'opt2', 'Option 2', CFG.layout==='opt2', (v)=>{ CFG.layout=v; });
+        const r1 = mkRadio('layout', 'opt1', 'Pinned sidebar (classic)', CFG.layout==='opt1', (v)=>{ CFG.layout=v; });
+        const r2 = mkRadio('layout', 'opt2', 'App drawer with flyouts', CFG.layout==='opt2', (v)=>{ CFG.layout=v; });
         layoutWrap.append(r1, r2);
 
         const toTitle = document.createElement('div'); toTitle.className='chip'; toTitle.textContent = 'Screen timeout';
@@ -822,35 +1129,88 @@
         toRow.append(toInput, toLbl);
 
         const catTitle = document.createElement('div'); catTitle.className='chip'; catTitle.textContent = 'Categories';
+        const catHint = document.createElement('div'); catHint.className='hint';
+        catHint.textContent = 'Click a category to edit its links on the right.';
+        catHint.style.fontSize = '12px';
+        catHint.style.opacity = '0.85';
+        catHint.style.margin = '4px 0 8px';
+        catHint.style.color = 'rgba(255,255,255,0.85)';
         const catList = document.createElement('div'); catList.className='list';
 
         (CFG.nav.cats||[]).forEach(([key, name, icon, show])=>{
           const row = document.createElement('div'); row.className='item'; row.dataset.key=key;
+          row.tabIndex = 0; row.setAttribute('role','button'); row.title = 'Select to edit links';
+          row.style.cursor = 'pointer';
           const left = document.createElement('div'); left.className='left';
+          const iconPicker = createIconPicker(icon, (val)=>{
+            const c = CFG.nav.cats.find(c=>c[0]===key);
+            if (c) c[2] = val;
+          });
           const nameInput = document.createElement('input'); nameInput.type='text'; nameInput.value = name; nameInput.title='Category label';
           nameInput.addEventListener('input', ()=>{ const c = CFG.nav.cats.find(c=>c[0]===key); if (c) c[1]=nameInput.value; });
-          left.append(nameInput);
+          left.append(iconPicker.el, nameInput);
           const showBox = document.createElement('input'); showBox.type='checkbox'; showBox.checked = show!==false; showBox.title='Show/Hide';
           showBox.addEventListener('click', (ev)=> ev.stopPropagation());
           showBox.addEventListener('change', ()=>{ const c = CFG.nav.cats.find(c=>c[0]===key); if (c) c[3]=showBox.checked; });
 
           row.append(left, showBox);
-          row.addEventListener('click', ()=>{
-            selectedKey = key;
-            renderLinksEditor(selectedKey);
-            // quick visual focus
-            [...catList.children].forEach(el=> el.style.outline='none');
-            row.style.outline='1px solid rgba(255,255,255,.35)';
-            row.style.outlineOffset='2px';
+            const handleSelect = ()=>{
+              selectedKey = key;
+              closeIconPop();
+              renderLinksEditor(selectedKey);
+              // quick visual focus
+              [...catList.children].forEach(el=> el.style.outline='none');
+              row.style.outline='1px solid rgba(255,255,255,.35)';
+              row.style.outlineOffset='2px';
+            };
+            row.addEventListener('click', handleSelect);
+            row.addEventListener('keydown', (ev)=>{
+              if (ev.key === 'Enter' || ev.key === ' '){
+                ev.preventDefault();
+                handleSelect();
+              }
+            });
+            catList.appendChild(row);
           });
-          catList.appendChild(row);
-        });
 
         if (!selectedKey){
           selectedKey = (CFG.nav.cats.find(c=>c[3]!==false)||CFG.nav.cats[0]||[])[0] || null;
         }
 
-        leftSeg.append(layoutTitle, layoutWrap, toTitle, toRow, catTitle, catList);
+        [...catList.children].forEach((el)=>{
+          if (el.dataset.key === selectedKey){
+            el.style.outline='1px solid rgba(255,255,255,.35)';
+            el.style.outlineOffset='2px';
+          } else {
+            el.style.outline='none';
+          }
+        });
+
+        const catActions = document.createElement('div');
+        catActions.style.display='flex';
+        catActions.style.justifyContent='flex-end';
+        catActions.style.margin='8px 0 0';
+        const addCatBtn = document.createElement('button');
+        addCatBtn.type='button';
+        addCatBtn.className='btn';
+        addCatBtn.textContent='Add category';
+        addCatBtn.addEventListener('click', ()=>{
+          ensureNavStructures();
+          const newKey = makeCatKey();
+          CFG.nav.cats.push([newKey, 'New Category', 'apps', true]);
+          CFG.nav.items[newKey] = [];
+          catState[newKey] = true;
+          saveCatState(catState);
+          selectedKey = newKey;
+          render();
+          setTimeout(()=>{
+            const field = leftSeg.querySelector(`.item[data-key="${newKey}"] input[type="text"]`);
+            field?.focus();
+          },0);
+        });
+        catActions.append(addCatBtn);
+
+        leftSeg.append(layoutTitle, layoutWrap, toTitle, toRow, catTitle, catHint, catList, catActions);
 
         // RIGHT: links for selected category
         renderLinksEditor(selectedKey);
@@ -862,6 +1222,14 @@
         head.textContent = 'Links in selected category';
         const list = document.createElement('div'); list.className='list';
 
+        ensureNavStructures();
+        if (!key){
+          rightSeg.append(head);
+          return;
+        }
+
+        if (!Array.isArray(CFG.nav.items[key])) CFG.nav.items[key] = [];
+
         (CFG.nav.items[key]||[]).forEach((it, idx)=>{
           const [label, icon, href, show] = it;
           const row = document.createElement('div'); row.className='item'; row.dataset.idx=idx;
@@ -869,22 +1237,54 @@
 
           const left = document.createElement('div'); left.className='left';
           const nameInput = document.createElement('input'); nameInput.type='text'; nameInput.value = label; nameInput.title='Link label';
-          const iconInput = document.createElement('input'); iconInput.type='text'; iconInput.value = icon; iconInput.placeholder='icon';
+          const iconPicker = createIconPicker(icon, (val)=>{
+            if (CFG.nav.items[key] && CFG.nav.items[key][idx]) {
+              CFG.nav.items[key][idx][1] = val;
+            }
+          });
           const hrefInput = document.createElement('input'); hrefInput.type='text'; hrefInput.value = href; hrefInput.placeholder='/path';
 
           const showBox = document.createElement('input'); showBox.type='checkbox'; showBox.checked = show!==false;
 
           nameInput.addEventListener('input', ()=>{ (CFG.nav.items[key][idx]||[])[0]=nameInput.value; });
-          iconInput.addEventListener('input', ()=>{ (CFG.nav.items[key][idx]||[])[1]=iconInput.value; });
           hrefInput.addEventListener('input', ()=>{ (CFG.nav.items[key][idx]||[])[2]=hrefInput.value; });
           showBox.addEventListener('change', ()=>{ (CFG.nav.items[key][idx]||[])[3]=showBox.checked; });
 
-          left.append(nameInput, iconInput, hrefInput);
+          left.append(iconPicker.el, nameInput, hrefInput);
           row.append(left, showBox);
           list.appendChild(row);
         });
 
-        rightSeg.append(head, list);
+        if (!list.children.length){
+          const empty = document.createElement('div');
+          empty.textContent = 'No links yet.';
+          empty.style.opacity = '.75';
+          empty.style.fontSize = '12px';
+          empty.style.margin = '6px 4px';
+          list.appendChild(empty);
+        }
+
+        const addLinkWrap = document.createElement('div');
+        addLinkWrap.style.display='flex';
+        addLinkWrap.style.justifyContent='flex-end';
+        addLinkWrap.style.margin='8px 0 0';
+        const addLinkBtn = document.createElement('button');
+        addLinkBtn.type='button';
+        addLinkBtn.className='btn';
+        addLinkBtn.textContent='Add link';
+        addLinkBtn.addEventListener('click', ()=>{
+          ensureNavStructures();
+          if (!Array.isArray(CFG.nav.items[key])) CFG.nav.items[key] = [];
+          CFG.nav.items[key].push(['New Link', 'link', '/odoo/', true]);
+          renderLinksEditor(key);
+          setTimeout(()=>{
+            const field = rightSeg.querySelector('.list .item:last-child input[type="text"]');
+            field?.focus();
+          },0);
+        });
+        addLinkWrap.append(addLinkBtn);
+
+        rightSeg.append(head, list, addLinkWrap);
       }
 
       function mkRadio(name, val, label, checked, on){
@@ -898,7 +1298,7 @@
       return { init(){ ver.addEventListener('dblclick', open); } };
     })();
 
-    /* ----- Lock overlay (unchanged behaviour) ----- */
+    /* ----- Lock overlay (legacy behaviour restored) ----- */
     Modules.Lock = (function(){
       let isLockedLocal=false, lastActivity=0;
       const bcActivity = ('BroadcastChannel' in self) ? new BroadcastChannel(ACTIVITY_CHAN) : null;
@@ -931,9 +1331,16 @@
       ['1','2','3','4','5','6','7','8','9','←','0','✓'].forEach(k=>{
         const b=document.createElement('button'); b.className='ts-key'; b.textContent=k;
         b.style.cssText='height:52px;border-radius:10px;background:rgba(255,255,255,.15);color:#fff;font-size:22px;border:none;cursor:pointer';
-        b.addEventListener('click',()=>{ if(k==='✓'){ submitPIN(); } else if(k==='←'){ pinInput.value=String(pinInput.value||'').slice(0,-1); pinInput.dispatchEvent(new Event('input')); } else if(/^\d$/.test(k)){ if(String(pinInput.value||'').length<12){ pinInput.value+=k; pinInput.dispatchEvent(new Event('input')); } }});
+        b.addEventListener('click',()=>{
+          if(k==='✓'){ submitPIN(); }
+          else if(k==='←'){ pinInput.value=String(pinInput.value||'').slice(0,-1); pinInput.dispatchEvent(new Event('input')); }
+          else if(/^\d$/.test(k)){ if(String(pinInput.value||'').length<12){ pinInput.value+=k; pinInput.dispatchEvent(new Event('input')); } }
+        });
         keypad.appendChild(b);
       });
+
+      let verifyTimer=null, lastQuery=0;
+      const MIN_DIGITS_FOR_AUTO = 3;
 
       if (TS.flags.posColorHardening && location.pathname.startsWith('/pos/ui')) {
         document.body.classList.add('pos-ui');
@@ -947,6 +1354,7 @@
         try{ if (hasStorage) storage.set({[ACTIVITY_KEY]: lastActivity}); }catch{}
         try { if (bcActivity) bcActivity.postMessage(lastActivity); } catch {}
       }
+
       ['mousemove','keydown','mousedown','touchstart','scroll','wheel'].forEach(ev => document.addEventListener(ev,bumpActivity,{passive:true}));
       window.addEventListener('focus', bumpActivity);
       window.addEventListener('pageshow', bumpActivity);
@@ -954,46 +1362,117 @@
       if (bcActivity) bcActivity.onmessage = (ev) => { const t=+ev.data||0; if (t>lastActivity) lastActivity=t; };
 
       function ensureFocus(){ if (overlay.style.display==='flex'){ try{ pinInput.focus(); }catch{} } }
+
       async function setUserNameOnOverlay(){
         const label = (searchHint.textContent||'User').replace(/@.*$/,'').replace(/\bodoo(\.[\w.-]+)?/i,'').trim() || 'User';
         userLine.textContent = label;
       }
+
       async function lockNowGlobal(){
         overlay.style.display='flex';
-        pinInput.value=''; msg.textContent='';
+        pinInput.value='';
+        msg.textContent='';
+        if (verifyTimer) { clearTimeout(verifyTimer); verifyTimer=null; }
+        lastQuery++;
         await setUserNameOnOverlay();
         isLockedLocal=true; await setState({locked:true}).catch(()=>{});
         pre.remove(); ensureFocus();
       }
-      async function hideOverlay(){ overlay.style.display='none'; pinInput.value=''; msg.textContent=''; isLockedLocal=false; await setState({locked:false}).catch(()=>{}); bumpActivity(); }
+
+      async function hideOverlay(){
+        overlay.style.display='none';
+        pinInput.value='';
+        msg.textContent='';
+        if (verifyTimer) { clearTimeout(verifyTimer); verifyTimer=null; }
+        lastQuery++;
+        isLockedLocal=false; await setState({locked:false}).catch(()=>{});
+        bumpActivity();
+      }
 
       if (hasStorage) try{
         chrome.storage.onChanged.addListener((changes, area)=>{
           if (area!=='local') return;
-          if (changes[STATE_KEY]){ const nv=changes[STATE_KEY].newValue||{locked:false}; if (nv.locked){ overlay.style.display='flex'; setUserNameOnOverlay(); ensureFocus(); } else { overlay.style.display='none'; } isLockedLocal=!!nv.locked; }
+          if (changes[STATE_KEY]){
+            const nv=changes[STATE_KEY].newValue||{locked:false};
+            if (nv.locked){ overlay.style.display='flex'; setUserNameOnOverlay(); ensureFocus(); } else { overlay.style.display='none'; }
+            isLockedLocal=!!nv.locked;
+          }
         });
       }catch{}
 
-      function getTimeoutMs(){ const min = Math.max(1, parseInt(CFG.timeoutMin||5,10)); return min*60*1000; }
+      function getTimeoutMs(){
+        const min = Math.max(1, parseInt(CFG.timeoutMin||5,10));
+        return min*60*1000;
+      }
+
       setInterval(()=>{ if (!isLockedLocal && (Date.now()-lastActivity>=getTimeoutMs())) lockNowGlobal(); },1000);
       document.addEventListener('keydown',(e)=>{ if(e.ctrlKey&&e.altKey&&e.code==='KeyL'){ e.preventDefault(); lockNowGlobal(); } }, {capture:true});
       lockBtn.addEventListener('click', lockNowGlobal);
 
-      function submitPIN(){
+      function handleHardwareKey(e){
+        if (overlay.style.display!=='flex') return;
+        const key = e.key;
+        if (/^\d$/.test(key)){
+          pinInput.value += key;
+          pinInput.dispatchEvent(new Event('input'));
+          e.preventDefault();
+          e.stopPropagation();
+          ensureFocus();
+          return;
+        }
+        if (key==='Backspace' || key==='Delete'){
+          pinInput.value = String(pinInput.value||'').slice(0,-1);
+          pinInput.dispatchEvent(new Event('input'));
+          e.preventDefault();
+          e.stopPropagation();
+          ensureFocus();
+          return;
+        }
+        if (key==='Enter' || key==='NumpadEnter'){
+          e.preventDefault();
+          e.stopPropagation();
+          submitPIN();
+          ensureFocus();
+          return;
+        }
+        if (key.length===1 && /\S/.test(key)){ e.preventDefault(); }
+      }
+
+      window.addEventListener('keydown', handleHardwareKey, {capture:true});
+
+      pinInput.addEventListener('input',()=>{
+        msg.textContent='';
+        if (verifyTimer) clearTimeout(verifyTimer);
+        const val=String(pinInput.value||'').trim();
+        if(!/^\d{1,12}$/.test(val) || val.length<MIN_DIGITS_FOR_AUTO) return;
+        const my=++lastQuery;
+        verifyTimer=setTimeout(async()=>{
+          if(my!==lastQuery) return;
+          const ok=await verifyPin(val);
+          if(my!==lastQuery) return;
+          if(ok) await hideOverlay(); else msg.textContent='Invalid PIN.';
+        },130);
+      });
+
+      async function submitPIN(){
         const pin=String(pinInput.value||'').trim();
         if(!/^\d{1,12}$/.test(pin)){ msg.textContent='Invalid PIN.'; return; }
-        verifyPin(pin).then(ok => { if(ok) hideOverlay(); else msg.textContent='Invalid PIN.'; });
+        const ok = await verifyPin(pin);
+        if(ok) await hideOverlay(); else msg.textContent='Invalid PIN.';
       }
+
       async function verifyPin(pin){
         try{
           const res=await fetch('/tek_lock/verify_pin',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify({pin})});
-          if(!res.ok) return false; const data=await res.json(); return !!(data&&data.ok);
-        } catch { return false; }
+          if(!res.ok) return false;
+          const data=await res.json();
+          return !!(data&&data.ok);
+        } catch {
+          return false;
+        }
       }
 
-      function init(){}
-
-      return { init };
+      return { init(){} };
     })();
 
     /* ============================ BOOT ORDER ================================ */
@@ -1014,13 +1493,15 @@
         must(document.querySelector('.cat-hd'), 'Category headers missing');
         must(document.querySelector('#sidebar-version'), 'Version control missing');
 
-        // Collapsed FAB presence when collapsed
+        // Collapsed behaviour sanity
         try{
           const prev = localStorage.getItem('sidebarCollapsed');
           localStorage.setItem('sidebarCollapsed','true');
-          document.querySelector('#extension-side-bar')?.classList.add('collapsed');
-          must(!!document.querySelector('#ts-collapsed-fab'), 'Collapsed FAB missing');
-          // restore key (do not auto-expand to avoid flicker)
+          const sb = document.querySelector('#extension-side-bar');
+          sb?.classList.add('collapsed');
+          const w = sb ? sb.getBoundingClientRect().width : 0;
+          must(!!sb && sb.classList.contains('collapsed'), 'Sidebar failed to collapse');
+          must(w <= 64 && w >= 40, 'Collapsed width unexpected');
           if (prev !== null) localStorage.setItem('sidebarCollapsed', prev);
         }catch{}
 
